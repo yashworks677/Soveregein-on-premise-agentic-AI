@@ -120,8 +120,46 @@ def run_e2e_tests():
     for l in logs[:5]:
         print(f"    - {l['timestamp']} | {l['username']} ({l['role']}) | {l['action']} | {l['status']}")
 
+    # 10. Unified Full-Stack Single-Service Serving (Render Target)
+    print("\n[10] Verifying Unified Full-Stack SPA & Asset Serving (One URL)...")
+    HOST_URL = "http://127.0.0.1:8000"
+
+    # Test 10a: Root / serves React index.html
+    r_root = requests.get(f"{HOST_URL}/")
+    assert r_root.status_code == 200 and 'id="root"' in r_root.text, "Root / did not return index.html"
+    print("  [OK] Root URL '/' correctly serves built React index.html")
+
+    # Test 10b: Page refresh on /workbench serves index.html (SPA Fallback)
+    r_wb = requests.get(f"{HOST_URL}/workbench")
+    assert r_wb.status_code == 200 and 'id="root"' in r_wb.text, "Route /workbench did not return index.html"
+    print("  [OK] Client-side route refresh '/workbench' correctly returns index.html")
+
+    # Test 10c: Page refresh on /dashboard serves index.html (SPA Fallback)
+    r_dash = requests.get(f"{HOST_URL}/dashboard")
+    assert r_dash.status_code == 200 and 'id="root"' in r_dash.text, "Route /dashboard did not return index.html"
+    print("  [OK] Client-side route refresh '/dashboard' correctly returns index.html")
+
+    # Test 10d: Page refresh on /tasks serves index.html (SPA Fallback)
+    r_tasks = requests.get(f"{HOST_URL}/tasks")
+    assert r_tasks.status_code == 200 and 'id="root"' in r_tasks.text, "Route /tasks did not return index.html"
+    print("  [OK] Client-side route refresh '/tasks' correctly returns index.html")
+
+    # Test 10e: Compiled JS bundle is served with 200 OK
+    import re
+    js_match = re.search(r'src="(/assets/[^"]+\.js)"', r_root.text)
+    assert js_match, "Could not find compiled JS bundle tag in index.html"
+    js_url = f"{HOST_URL}{js_match.group(1)}"
+    r_js = requests.get(js_url)
+    assert r_js.status_code == 200 and len(r_js.content) > 10000, f"JS bundle failed to load: {js_url}"
+    print(f"  [OK] Static JS asset bundle served cleanly ({len(r_js.content)} bytes)")
+
+    # Test 10f: Non-existent API route returns 404 (not swallowed by SPA)
+    r_404 = requests.get(f"{HOST_URL}/api/non_existent_endpoint_12345")
+    assert r_404.status_code == 404, "API 404 was unexpectedly swallowed by SPA fallback"
+    print("  [OK] Unknown API routes return strict 404 and are not swallowed by SPA fallback")
+
     print("\n" + "=" * 60)
-    print("ALL 9 TEST PHASES PASSED - 100% REAL FUNCTIONALITY VERIFIED!")
+    print("ALL 10 TEST PHASES PASSED - 100% UNIFIED FULL-STACK VERIFIED!")
     print("=" * 60)
 
 if __name__ == "__main__":

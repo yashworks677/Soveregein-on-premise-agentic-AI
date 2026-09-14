@@ -165,7 +165,7 @@ export default function TaskHistory() {
                                 {deliv.name}
                               </span>
                               <a
-                                href={`http://127.0.0.1:8000${deliv.download_url}`}
+                                href={deliv.download_url}
                                 download
                                 style={{
                                   color: '#0284C7',

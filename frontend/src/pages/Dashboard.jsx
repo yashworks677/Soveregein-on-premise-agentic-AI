@@ -173,7 +173,7 @@ export default function Dashboard({ setActiveTab, currentUser }) {
                     <td>
                       {t.deliverables.length > 0 && (
                         <a
-                          href={`http://127.0.0.1:8000${t.deliverables[0].download_url}`}
+                          href={t.deliverables[0].download_url}
                           download
                           style={{
                             color: '#10B981',

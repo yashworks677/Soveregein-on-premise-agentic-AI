@@ -722,7 +722,7 @@ export default function Workbench({ currentUser }) {
                     {taskResult.charts.map((chartName, i) => (
                       <div key={i} style={{ backgroundColor: '#FFFFFF', padding: '0.5rem', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
                         <img 
-                          src={`http://127.0.0.1:8000/static/charts/${chartName}`} 
+                          src={`/static/charts/${chartName}`} 
                           alt="Operational Telemetry Chart" 
                           style={{ maxWidth: '100%', height: 'auto', borderRadius: 'var(--radius-sm)' }}
                         />
@@ -840,7 +840,7 @@ export default function Workbench({ currentUser }) {
 
                         {/* Real Download Button */}
                         <a
-                          href={`http://127.0.0.1:8000${deliv.download_url}`}
+                          href={deliv.download_url}
                           download={deliv.name}
                           style={{
                             backgroundColor: '#0369A1',
@@ -951,7 +951,7 @@ export default function Workbench({ currentUser }) {
             <div className="modal-body">
               {previewModal.file_type === 'pdf' ? (
                 <iframe
-                  src={`http://127.0.0.1:8000${previewModal.download_url}`}
+                  src={previewModal.download_url}
                   title={previewModal.name}
                   style={{ width: '100%', height: '550px', border: 'none', borderRadius: 'var(--radius-sm)' }}
                 />
@@ -1012,7 +1012,7 @@ export default function Workbench({ currentUser }) {
               </button>
 
               <a
-                href={`http://127.0.0.1:8000${previewModal.download_url}`}
+                href={previewModal.download_url}
                 download={previewModal.name}
                 style={{
                   backgroundColor: '#0369A1',

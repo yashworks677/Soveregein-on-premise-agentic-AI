@@ -1,6 +1,7 @@
 import os
 import shutil
 import uuid
+import time
 from pathlib import Path
 from typing import List, Optional
 
@@ -10,7 +11,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from backend.config import (
-    UPLOADS_DIR, DELIVERABLES_DIR, CHARTS_DIR, KNOWLEDGE_DIR, 
+    STORAGE_DIR, UPLOADS_DIR, DELIVERABLES_DIR, CHARTS_DIR, KNOWLEDGE_DIR, 
     SAMPLE_DATA_DIR, ENCLAVE_MODE, EXTERNAL_API_STATUS, DB_PATH
 )
 from backend.models import (
@@ -45,6 +46,43 @@ app.add_middleware(
 
 # Mount static directories for deliverables and charts
 app.mount("/static/charts", StaticFiles(directory=str(CHARTS_DIR)), name="charts")
+
+@app.on_event("startup")
+async def startup_init():
+    # Ensure storage directories exist
+    for d in [STORAGE_DIR, UPLOADS_DIR, DELIVERABLES_DIR, CHARTS_DIR, KNOWLEDGE_DIR, SAMPLE_DATA_DIR]:
+        d.mkdir(parents=True, exist_ok=True)
+    
+    # Check if sample files exist; if not, generate them
+    sop_sample = SAMPLE_DATA_DIR / "Safety_SOP_Refinery_Pressure_Vessels.pdf"
+    if not sop_sample.exists():
+        try:
+            from backend.sample_data.generate_samples import (
+                create_inspection_pdf, create_safety_sop_pdf, 
+                create_plant_metrics_xlsx, create_comparison_reports
+            )
+            create_inspection_pdf(SAMPLE_DATA_DIR / "Inspection_Report_Distillation_Unit_7.pdf")
+            create_safety_sop_pdf(sop_sample)
+            create_plant_metrics_xlsx(SAMPLE_DATA_DIR / "Plant_Performance_Metrics_Q3.xlsx")
+            create_comparison_reports(SAMPLE_DATA_DIR)
+        except Exception as e:
+            print(f"Sample generation warning: {e}")
+
+    # Check if knowledge base is seeded
+    try:
+        docs = get_registered_knowledge()
+        if not docs and sop_sample.exists():
+            doc = parse_document(sop_sample)
+            qdrant_store.add_document(
+                doc_id="doc_sop_504",
+                filename=sop_sample.name,
+                title="SOP-504: Statutory Integrity Standards for Refinery Pressure Vessels",
+                text=doc["raw_text"],
+                uploaded_by="admin",
+                description="Official Refinery Safety Standard on Wall Thickness & PRV Tolerances"
+            )
+    except Exception as e:
+        print(f"Knowledge base seeding warning: {e}")
 
 # --- AUTH ENDPOINTS ---
 
@@ -348,4 +386,37 @@ async def get_system_status(current_user: User = Depends(get_current_user)):
         active_user=f"{current_user.full_name} ({current_user.role})"
     )
 
-import time
+# --- FRONTEND STATIC ASSETS & SPA CLIENT-SIDE ROUTING ---
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+INDEX_FILE = FRONTEND_DIST / "index.html"
+
+# Mount /assets if the directory exists
+ASSETS_DIR = FRONTEND_DIST / "assets"
+if ASSETS_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR)), name="frontend_assets")
+
+@app.get("/")
+async def serve_root():
+    if INDEX_FILE.exists():
+        return FileResponse(str(INDEX_FILE))
+    return {"message": "SovereignAI Workbench backend is active. Build frontend to view UI."}
+
+@app.get("/{full_path:path}")
+async def serve_spa_frontend(full_path: str):
+    # Skip /api, /static, and docs paths so errors are properly handled by FastAPI
+    if (full_path.startswith("api/") or 
+        full_path.startswith("static/") or 
+        full_path.startswith("docs") or 
+        full_path.startswith("openapi.json")):
+        raise HTTPException(status_code=404, detail="Resource not found")
+
+    # Serve specific static file from frontend/dist if present (e.g. vite.svg, favicon.ico)
+    requested_file = FRONTEND_DIST / full_path
+    if requested_file.is_file():
+        return FileResponse(str(requested_file))
+
+    # Otherwise fallback to index.html for client-side React routes (/workbench, /dashboard, /settings, etc.)
+    if INDEX_FILE.exists():
+        return FileResponse(str(INDEX_FILE))
+
+    return {"message": "SovereignAI Workbench backend is active. Build frontend to view UI."}
